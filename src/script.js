@@ -1,15 +1,17 @@
 // 具体化しようよ
 'use strict';
 // このあとやること
-// 1. パターンごとのテーマカラー（薄い赤、青とか）を用意
-// 2. パターン6はマルチイージングでやりたい。辺を消すステルスも多用する。
+// 1. パターンごとのテーマカラー（薄い赤、青とか）を用意→完了
+// 2. パターン6はマルチイージングでやりたい。辺を消すステルスも多用する。→完了
 // 3. パターン7は、複雑な迷路にしたい。分岐が数多くあり、ひとつしか正解がないみたいなやつ。
 // 4. それぞれのパターンを選べる仕組みも作りたい。それで完成になります。
 // 5. ボーナス欲しい？
+// 6. Hubのところに新しいflowを登録するメソッドが必要ですね・・そのうち解除とかもするかも？
+// GitHubに移行しました。
 
 const HUB_RADIUS = 5;
 const PATTERN_NUM = 6;
-const GRAPHICS_NUM = 6;
+const GRAPHICS_NUM = 7;
 
 let graph;
 let actorGraphics = [];
@@ -73,10 +75,21 @@ function createActorGraphics(img, graphicsId){
     img.quad(10, 2, 2, 18, 10, 10, 18, 18);
   }else if(graphicsId === 5){ // 水色のなんか
     img.fill(0, 162, 232);
-    img.quad(0, 0, 7, 3, 10, 10, 3, 7);
-    img.quad(20, 0, 13, 3, 10, 10, 17, 7);
-    img.quad(0, 20, 3, 13, 10, 10, 7, 17);
-    img.quad(20, 20, 17, 13, 10, 10, 13, 17);
+    for(let k = 0; k < 6; k++){
+      let t = 2 * PI * k / 6;
+      let t1 = t + 2 * PI / 20;
+      let t2 = t - 2 * PI / 20;
+      img.quad(10 + 10 * sin(t), 10 - 10 * cos(t), 10 + 5 * sin(t1), 10 - 5 * cos(t1), 10, 10, 10 + 5 * sin(t2), 10 - 5 * cos(t2));
+    }
+  }else if(graphicsId === 6){ // 星。
+    img.fill(255, 242, 0);
+    for(let k = 0; k < 5; k++){
+      let t = 2 * PI * k / 5;
+      let t1 = t - 2 * PI / 10;
+      let t2 = t + 2 * PI / 10;
+      img.triangle(10 + 10 * sin(t), 10 - 10 * cos(t), 10 + 5 * sin(t1), 10 - 5 * cos(t1), 10 + 5 * sin(t2), 10 - 5 * cos(t2));
+    }
+    img.ellipse(10, 10, 10, 10);
   }
 }
 
@@ -124,6 +137,7 @@ class hub{
     this.y = y;
     this.outFlow = []; //outだけ。とりあえず。
   }
+  // 今気付いたけどoutFlowにflowを登録するメソッドがないの割と問題だな・・何とかしようよ。
   convert(){
     let nextFlowIndex = randomInt(this.outFlow.length);
     return this.outFlow[nextFlowIndex];
@@ -247,16 +261,19 @@ class torusFlow extends factorFlow{
     super(h1, h2, factor);
     this.m = m; // x方向調整用の整数（0が無修正）
     this.n = n; // y方向調整用の整数（0が無修正）
+    // 矢印使わないからそのままspanいじっちゃおう
+    this.span = sqrt(pow(h2.x - h1.x + width * m, 2) + pow(h2.y - h1.y + height * n, 2));
   }
   calcPos(pos, cnt){
     // modを取る。ただしマイナスの場合はwidthなりheightを足す。
-    pos.x = map(cnt, 0, this.span / this.speedFactor, this.from.x, this.to.x + m * width);
-    pos.y = map(cnt, 0, this.span / this.speedFactor, this.from.y, this.to.y + n * height);
+    pos.x = map(cnt, 0, this.span / this.speedFactor, this.from.x, this.to.x + this.m * width);
+    pos.y = map(cnt, 0, this.span / this.speedFactor, this.from.y, this.to.y + this.n * height);
     pos.x = pos.x % width;
     pos.y = pos.y % height;
     if(pos.x < 0){ pos.x += width; }
     if(pos.y < 0){ pos.y += height; }
   }
+  drawOrbit(gr){ return; } // 軌道は描かない
 }
 
 class jumpFlow extends flow{
@@ -367,7 +384,7 @@ class entity{
     // ここ↑に問題があって、グラフをクラスにしてここから上をひとまとめにして、
     // その集合体としてentityを考える必要がある。それにより、
     // 個々のグラフの回転や平行移動が可能になるけどそれは別のsketchでやりましょうね・・
-    this.patternIndex = 5;
+    this.patternIndex = 0;
   }
   reset(){
     this.hubs = [];
@@ -385,16 +402,12 @@ class entity{
     //console.log(2);
   }
   createGraph(){
-    //this.baseGraph.background(230); // ここをやめてテーマカラーにしよう
-    //console.log(4);
     this.flows.forEach(function(f){
       f.drawOrbit(this.baseGraph);
     }, this)
-    //console.log(5);
     this.hubs.forEach(function(h){
       this.baseGraph.ellipse(h.x, h.y, HUB_RADIUS * 2, HUB_RADIUS * 2); // ここをhubごとにdrawさせたい気持ちもある・・
     }, this)
-    //console.log(3);
     // 将来的にはここでは固定部分だけを描画して可変部分は毎フレーム描画みたいな感じにしたい。
   }
   switchPattern(){
@@ -429,9 +442,9 @@ class entity{
     }else if(pr['type'] === 'jump'){
       return new jumpFlow(h1, h2);
     }else if(pr['type'] === 'factor'){
-      //console.log("createFlow");
-      //console.log(pr['factor']);
       return new factorFlow(h1, h2, pr['factor']);
+    }else if(pr['type'] === 'torus'){
+      return new torusFlow(h1, h2, pr['factor'], pr['m'], pr['n']);
     }
   }
   registActor(defaultHubsId, speeds, kinds){
@@ -546,26 +559,31 @@ function createPattern4(){
 }
 
 function createPattern5(){
-  // multiple easingと辺消去の実験
-  // hub set.
-  let posX = arSeq(140, 40, 4).concat(arSeq(100, 40, 6)).concat(arSeq(100, 40, 6)).concat(arSeq(100, 40, 6)).concat(arSeq(100, 40, 6)).concat(arSeq(140, 40, 4));
-  let posY = constSeq(100, 4).concat(constSeq(140, 6)).concat(constSeq(180, 6)).concat(constSeq(220, 6)).concat(constSeq(260, 6)).concat(constSeq(300, 4));
+  // torusFlow使いましょー
+  let posX = [80, 160, 240, 320, 320, 320, 320, 240, 160, 80, 80, 80];
+  let posY = [80, 80, 80, 80, 160, 240, 320, 320, 320, 320, 240, 160];
   graph.registHub(posX, posY);
-  // straight flow.(32)
-  let inHubsId = [0, 6, 2, 8, 8, 15, 20, 27, 31, 25, 29, 23, 23, 16, 11, 4, 5, 11, 17, 23, 24, 25, 26, 20, 14, 8, 7, 6, 12, 13, 19, 18];
-  let outHubsId = [5, 1, 7, 3, 9, 14, 21, 26, 26, 30, 24, 28, 22, 17, 10, 5, 11, 17, 23, 24, 25, 26, 20, 14, 8, 7, 6, 5, 13, 19, 18, 12];
-  graph.registFlow(inHubsId, outHubsId, typeSeq('straight', 32))
-  // easing flow.(16)
-  let params = typeSeq('easing', 16);
-  inHubsId = [6, 14, 25, 17, 18, 12, 13, 19, 21, 10, 9, 22, 30, 1, 28, 3];
-  outHubsId = [19, 18, 12, 13, 7, 20, 24, 11, 4, 27, 16, 15, 0, 31, 2, 29];
-  for(let i = 0; i < 16; i++){
+  // straightFlow.
+  graph.registFlow(arSeq(0, 1, 12), arSeq(1, 1, 11).concat([0]), typeSeq('straight', 12));
+  // torusFlow.
+  let params = typeSeq('torus', 8);
+  let mSeq = [-2, -2, 0, 2, 2, 2, 0, -2];
+  let nSeq = [-2, 0, -2, -2, 0, 2, 2, 2];
+  for(let i = 0; i < 8; i++){ params[i]['factor'] = 4; params[i]['m'] = mSeq[i]; params[i]['n'] = nSeq[i]; }
+  graph.registFlow([0, 10, 1, 3, 4, 6, 7, 9], [5, 3, 6, 8, 9, 11, 0, 2], params);
+  // easingFlow.
+  params = typeSeq('easing', 6);
+  for(let i = 0; i < 6; i++){
     params[i]['easingIdX'] = randomInt(12); params[i]['easingIdY'] = randomInt(12);
   }
-  graph.registFlow(inHubsId, outHubsId, params);
-  graph.setInvisibleFlow(arSeq(32, 1, 16));
-  graph.registActor([0, 9, 31, 22], [3, 2, 3, 2], [5, 5, 5, 5]);
+  graph.registFlow([1, 2, 11, 4, 6, 9], [7, 8, 5, 10, 0, 3], params);
+  graph.setInvisibleFlow(arSeq(20, 1, 6));
+  graph.registActor([0, 3, 6, 9, 1, 7], [2, 3, 2, 3, 4, 4], [5, 5, 5, 5, 5, 5]);
   graph.baseGraph.background(181, 233, 255);
+}
+
+function createPattern6(){
+  // これで最後。迷路。
 }
 
 // 配列関数
