@@ -9,7 +9,7 @@
 // 6. Hubのところに新しいflowを登録するメソッドが必要ですね・・そのうち解除とかもするかも？
 // GitHubに移行しました。
 
-// ブリンクを実装
+// ブリンク前（残しておく）
 
 const HUB_RADIUS = 5;
 const PATTERN_NUM = 6;
@@ -46,45 +46,36 @@ function keyTyped(){
 
 // グラフィックの登録
 function registActorGraphics(){
-  // ここにカラーの一覧をね
-  let figureColors = [];
-  figureColors.push([color(0, 0, 255), color(255, 0, 0), color(163, 73, 164), color(0), color(32, 168, 72), color(0, 162, 232), color(255, 242, 0)]);
-  figureColors.push([color(60, 60, 255), color(255, 60, 60), color(188, 105, 188), color(70), color(55, 217, 104), color(85, 204, 255), color(255, 247, 81)]);
-  figureColors.push([color(120, 120, 255), color(255, 120, 120), color(200, 135, 200), color(130), color(121, 230, 154), color(159, 226, 255), color(255, 250, 153)]);
-  for(let index = 0; index < 3; index++){
-    for(let i = 0; i < GRAPHICS_NUM; i++){
-      let img = createGraphics(20, 20);
-      img.noStroke();
-      createActorGraphics(img, i, figureColors[index][i]);
-      actorGraphics.push(img);
-    }
+  for(let i = 0; i < GRAPHICS_NUM; i++){
+    let img = createGraphics(20, 20);
+    img.noStroke();
+    createActorGraphics(img, i);
+    actorGraphics.push(img);
   }
 }
 
-
 // グラフィックの詳細
-function createActorGraphics(img, graphicsId, figureColor){
-  img.fill(figureColor);
+function createActorGraphics(img, graphicsId){
   if(graphicsId === 0){ // 普通の正方形
-    //img.fill(0, 0, 255);
+    img.fill(0, 0, 255);
     img.rect(3, 3, 14, 14);
   }else if(graphicsId === 1){ // 三角形（火のイメージ）
-    //img.fill(255, 0, 0);
+    img.fill(255, 0, 0);
     img.triangle(10, 0, 10 + 5 * sqrt(3), 15, 10 - 5 * sqrt(3), 15);
   }else if(graphicsId === 2){ // ダイヤ型（クリスタルのイメージ）（色合い工夫してもいいかも）
-    //img.fill(187, 102, 187);
+    img.fill(187, 102, 187);
     img.quad(10, 0, 10 + 10 / sqrt(3), 10, 10, 20, 10 - 10 / sqrt(3), 10);
   }else if(graphicsId === 3){ // 手裏剣（忍者のイメージ）
-    //img.fill(0);
+    img.fill(0);
     img.quad(7, 6, 13, 0, 13, 14, 7, 20);
     img.quad(0, 7, 14, 7, 20, 13, 6, 13);
     img.fill(255);
     img.ellipse(10, 10, 5, 5);
   }else if(graphicsId === 4){ // くさび型（草のイメージ・・くさびだけに（？）
-    //img.fill(32, 168, 72);
+    img.fill(32, 168, 72);
     img.quad(10, 2, 2, 18, 10, 10, 18, 18);
   }else if(graphicsId === 5){ // 水色のなんか
-    //img.fill(0, 162, 232);
+    img.fill(0, 162, 232);
     for(let k = 0; k < 6; k++){
       let t = 2 * PI * k / 6;
       let t1 = t + 2 * PI / 20;
@@ -92,7 +83,7 @@ function createActorGraphics(img, graphicsId, figureColor){
       img.quad(10 + 10 * sin(t), 10 - 10 * cos(t), 10 + 5 * sin(t1), 10 - 5 * cos(t1), 10, 10, 10 + 5 * sin(t2), 10 - 5 * cos(t2));
     }
   }else if(graphicsId === 6){ // 星。
-    //img.fill(255, 242, 0);
+    img.fill(255, 242, 0);
     for(let k = 0; k < 5; k++){
       let t = 2 * PI * k / 5;
       let t1 = t - 2 * PI / 10;
@@ -388,15 +379,7 @@ class actor{
     this.timer = new counter(); // ()忘れてた。ごめんなさい。
     //this.timer.setting(this.move.span, this.speed);
     this.timer.setting(this.move.getSpan(), this.speed); // getterで取得するように変更
-    // ブリンクが出るようにいじる
-    this.posArray = []; // ブリンク表示用
-    for(let i = 0; i < 11; i++){ this.posArray.push(createVector(h.x, h.y)); }
-    // visualをブリンクを含む配列にする
-    this.visual = [new figure(kind), new figure(kind + GRAPHICS_NUM), new figure(kind + 2 * GRAPHICS_NUM)];
-    for(let i = 0; i < 3; i++){ // 回転パターンを揃える
-      this.visual[1].rotation = this.visual[0].rotation;
-      this.visual[2].rotation = this.visual[0].rotation;
-    }
+    this.visual = new figure(kind); // 表現
   }
   setting(){
     this.move = this.move.to.convert();
@@ -407,17 +390,11 @@ class actor{
     if(!this.timer.getState()){ return; }
     this.timer.progress();
     this.move.calcPos(this.pos, this.timer.getCnt());
-    // posArrayの更新
-    this.posArray.shift();
-    this.posArray.push(createVector(this.pos.x, this.pos.y));
     // 多分イージング入れるとしたら、ここ。加法的か乗法的か知らないけど。
     if(!this.timer.check()){ this.setting(); } // counter check.
   }
   display(){
-    // ブリンクもまとめて表示
-    this.visual[0].display(this.pos);
-    this.visual[1].display(this.posArray[5]);
-    this.visual[2].display(this.posArray[0]);
+    this.visual.display(this.pos); // ここで描画
   }
 }
 
